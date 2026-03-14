@@ -484,12 +484,47 @@ async function calcRoutes(){
   }
   const valid=rows.filter(r=>r.lat),invalid=rows.filter(r=>!r.lat);
   const clusters=clusterRoutes(valid,nCars,mode);
-  const routes=clusters.filter(c=>c.length).map((cl,i)=>({car:i+1,stops:nearestNeighbor(cl)}));
-  S.mod3.routes=routes;S.mod3.failed=invalid;renderRoutes(routes,invalid);
+  const routes=clusters.filter(c=>c.length).map((cl,i)=>({car:i+1,stops:nearestNeighbor(cl),distKm:null}));
+  S.mod3.routes=routes;S.mod3.failed=invalid;
+  // Calcula distâncias via Directions API
+  const originAddr=document.getElementById('origin').value.trim();
+  st.innerHTML=`<span class="loading"><span class="spinner"></span> Calculando distâncias...</span>`;
+  await calcDistances(routes,originAddr);
+  renderRoutes(routes,invalid);
   let msg=`<span style="color:var(--green)">✓ ${routes.length} rota(s) calculada(s)</span>`;
   if(failed.length)msg+=` &nbsp;<span style="color:var(--orange)">⚠️ ${failed.length} não encontrado(s): Nota(s) ${failed.join(', ')}</span>`;
   st.innerHTML=msg;btn.disabled=false;
 }
+
+// Calcula distância real via Directions API (com fallback haversine)
+async function calcDistances(routes,originAddr){
+  const svc=new google.maps.DirectionsService();
+  for(const rt of routes){
+    if(!rt.stops.length)continue;
+    try{
+      // Máx 23 waypoints intermediários (limite API)
+      const wpts=rt.stops.slice(0,-1).map(s=>({location:new google.maps.LatLng(s.lat,s.lng),stopover:true})).slice(0,23);
+      const result=await new Promise((res,rej)=>svc.route({
+        origin:originAddr,
+        destination:new google.maps.LatLng(rt.stops[rt.stops.length-1].lat,rt.stops[rt.stops.length-1].lng),
+        waypoints:wpts,
+        travelMode:google.maps.TravelMode.DRIVING
+      },(r,status)=>status==='OK'?res(r):rej(status)));
+      rt.distKm=(result.routes[0].legs.reduce((s,l)=>s+l.distance.value,0)/1000).toFixed(1);
+    }catch(e){
+      // Fallback: soma haversine entre paradas consecutivas
+      let d=0;const all=rt.stops;
+      for(let i=1;i<all.length;i++){
+        const R=6371,dLat=(all[i].lat-all[i-1].lat)*Math.PI/180,dLng=(all[i].lng-all[i-1].lng)*Math.PI/180;
+        const a=Math.sin(dLat/2)**2+Math.cos(all[i-1].lat*Math.PI/180)*Math.cos(all[i].lat*Math.PI/180)*Math.sin(dLng/2)**2;
+        d+=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+      }
+      rt.distKm=d.toFixed(1)+'*'; // * = estimativa
+    }
+    await sleep(200);
+  }
+}
+
 function clusterRoutes(pts,k,mode){
   if(k===1)return[pts];if(pts.length<=k)return pts.map(p=>[p]);
   let centers=pts.slice(0,k).map(p=>({lat:p.lat,lng:p.lng})),clusters=[];
@@ -503,11 +538,17 @@ function rebalance(clusters,pts,centers,weightFn){
   return clusters;
 }
 function nearestNeighbor(stops){if(stops.length<=1)return stops;const unv=[...stops],route=[unv.splice(0,1)[0]];while(unv.length){const last=route[route.length-1];let min=Infinity,idx=0;unv.forEach((s,i)=>{const d=(s.lat-last.lat)**2+(s.lng-last.lng)**2;if(d<min){min=d;idx=i;}});route.push(unv.splice(idx,1)[0]);}return route;}
+
 const CAR_COLORS=['#C0392B','#1565C0','#6A1B9A','#00695C','#E65100','#558B2F','#4527A0'];
 function renderRoutes(routes,failed=[]){
   const tV=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.veg||0),0),tP=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.porc||0),0),tF=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.pf||0),0),tN=routes.flatMap(r=>r.stops).length;
   document.getElementById('route-summary-boxes').innerHTML=`<div class="summary-box"><div class="s-label">Entregas roteirizadas</div><div class="s-value">${tN}</div></div><div class="summary-box"><div class="s-label">Carros</div><div class="s-value">${routes.length}</div></div><div class="summary-box"><div class="s-label">Total VEGETAIS</div><div class="s-value s-green">${tV}</div></div><div class="summary-box"><div class="s-label">Total PORCO</div><div class="s-value">${tP}</div></div><div class="summary-box"><div class="s-label">Total PORCO E FRANGO</div><div class="s-value s-orange">${tF}</div></div>${failed.length?`<div class="summary-box" style="border-color:#FFD54F;background:#FFF8E1"><div class="s-label">Não geocodificados</div><div class="s-value" style="color:var(--orange)">${failed.length}</div></div>`:''}`;
-  document.getElementById('route-legend').innerHTML=routes.map((rt,ri)=>{const col=CAR_COLORS[ri%CAR_COLORS.length];return`<div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span style="width:14px;height:14px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0"></span>Carro ${rt.car} — ${rt.stops.length} entrega${rt.stops.length!==1?'s':''}</div>`;}).join('');
+  // Legenda com distância
+  document.getElementById('route-legend').innerHTML=routes.map((rt,ri)=>{
+    const col=CAR_COLORS[ri%CAR_COLORS.length];
+    const km=rt.distKm?` · 📍 ${rt.distKm} km`:'';
+    return`<div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span style="width:14px;height:14px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0"></span>Carro ${rt.car} — ${rt.stops.length} entrega${rt.stops.length!==1?'s':''}${km}</div>`;
+  }).join('');
   const mapEl=document.getElementById('map');mapEl.style.height='420px';
   const map=new google.maps.Map(mapEl,{zoom:11,center:{lat:-23.55,lng:-46.63},mapTypeControl:false,streetViewControl:false,styles:[{featureType:'poi',stylers:[{visibility:'off'}]}]});
   routes.forEach((rt,ri)=>{const col=CAR_COLORS[ri%CAR_COLORS.length];rt.stops.forEach((s,si)=>{new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,title:`[Carro ${rt.car}] ${s.dest}`,label:{text:String(si+1),color:'white',fontWeight:'bold',fontSize:'11px'},icon:{path:google.maps.SymbolPath.CIRCLE,scale:14,fillColor:col,fillOpacity:1,strokeColor:'white',strokeWeight:2}});});if(rt.stops.length>1)new google.maps.Polyline({path:rt.stops.map(s=>({lat:s.lat,lng:s.lng})),geodesic:true,strokeColor:col,strokeOpacity:.6,strokeWeight:3,map});});
@@ -529,8 +570,9 @@ function printRoute(){
   const routeHtml=routes.map(rt=>{
     const col=CP[riMap[rt.car]%CP.length];
     const tV=rt.stops.reduce((s,r)=>s+(r.veg||0),0),tP=rt.stops.reduce((s,r)=>s+(r.porc||0),0),tF=rt.stops.reduce((s,r)=>s+(r.pf||0),0);
+    const kmStr=rt.distKm?` · 📍 ${rt.distKm} km`:'';
     const rowsHtml=rt.stops.map((s,si)=>`<tr><td style="text-align:center;font-weight:700">${si+1}</td><td style="font-weight:600">${s.nota}</td><td style="font-weight:600">${s.dest}</td><td style="font-size:11px;color:#555">${s.end}${s.cidade?', '+s.cidade:''}</td><td style="text-align:center;font-weight:700;color:${s.veg>0?'#1B5E20':'#ccc'}">${s.veg||'—'}</td><td style="text-align:center;font-weight:700;color:${s.porc>0?'#1565C0':'#ccc'}">${s.porc||'—'}</td><td style="text-align:center;font-weight:700;color:${s.pf>0?'#E65100':'#ccc'}">${s.pf||'—'}</td></tr>`).join('');
-    return`<div class="car-section"><div class="car-title" style="background:${col}">🚗 Carro ${rt.car} · ${rt.stops.length} entrega${rt.stops.length!==1?'s':''} · Vegetais: ${tV} · Porco: ${tP} · P. e Frango: ${tF}</div><table><thead><tr><th style="width:45px">Ordem</th><th style="width:85px">Nota</th><th style="width:190px">Destinatário</th><th>Endereço</th><th style="width:65px;text-align:center">VEG</th><th style="width:55px;text-align:center">PORC</th><th style="width:75px;text-align:center">P.FRANGO</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td colspan="4" style="font-weight:700;text-align:right;padding-right:12px">TOTAL SEPARAÇÃO:</td><td style="text-align:center;font-weight:800;color:#1B5E20">${tV}</td><td style="text-align:center;font-weight:800;color:#1565C0">${tP}</td><td style="text-align:center;font-weight:800;color:#E65100">${tF}</td></tr></tfoot></table></div>`;
+    return`<div class="car-section"><div class="car-title" style="background:${col}">🚗 Carro ${rt.car} · ${rt.stops.length} entrega${rt.stops.length!==1?'s':''}${kmStr} · Vegetais: ${tV} · Porco: ${tP} · P. e Frango: ${tF}</div><table><thead><tr><th style="width:45px">Ordem</th><th style="width:85px">Nota</th><th style="width:190px">Destinatário</th><th>Endereço</th><th style="width:65px;text-align:center">VEG</th><th style="width:55px;text-align:center">PORC</th><th style="width:75px;text-align:center">P.FRANGO</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td colspan="4" style="font-weight:700;text-align:right;padding-right:12px">TOTAL SEPARAÇÃO:</td><td style="text-align:center;font-weight:800;color:#1B5E20">${tV}</td><td style="text-align:center;font-weight:800;color:#1565C0">${tP}</td><td style="text-align:center;font-weight:800;color:#E65100">${tF}</td></tr></tfoot></table></div>`;
   }).join('');
   const label=carSel==='all'?'Todos os Carros':`Carro ${carSel}`;
   const win=window.open('','_blank');
@@ -577,7 +619,17 @@ ${routeHtml}
   win.document.close();
 }
 
-function expRouteXls(){const wb=XLSX.utils.book_new();S.mod3.routes.forEach(rt=>{const tV=rt.stops.reduce((s,r)=>s+(r.veg||0),0),tP=rt.stops.reduce((s,r)=>s+(r.porc||0),0),tF=rt.stops.reduce((s,r)=>s+(r.pf||0),0);const ws=XLSX.utils.aoa_to_sheet([[`CARRO ${rt.car} — Roteirização Kozzy`],[],['Ordem','Nota','Destinatário','Endereço','Cidade','Vegetais','Porco','Porco e Frango'],...rt.stops.map((s,i)=>[i+1,s.nota,s.dest,s.end,s.cidade,s.veg||0,s.porc||0,s.pf||0]),[],['','','','','TOTAL',tV,tP,tF]]);ws['!cols']=[{wch:7},{wch:12},{wch:36},{wch:36},{wch:22},{wch:10},{wch:10},{wch:14}];XLSX.utils.book_append_sheet(wb,ws,`Carro ${rt.car}`);});XLSX.writeFile(wb,`Roteirizacao_Kozzy_${today()}.xlsx`);}
+function expRouteXls(){
+  const wb=XLSX.utils.book_new();
+  S.mod3.routes.forEach(rt=>{
+    const tV=rt.stops.reduce((s,r)=>s+(r.veg||0),0),tP=rt.stops.reduce((s,r)=>s+(r.porc||0),0),tF=rt.stops.reduce((s,r)=>s+(r.pf||0),0);
+    const kmLabel=rt.distKm?`Distância total: ${rt.distKm} km`:'';
+    const ws=XLSX.utils.aoa_to_sheet([[`CARRO ${rt.car} — Roteirização Kozzy`],[kmLabel],[],['Ordem','Nota','Destinatário','Endereço','Cidade','Vegetais','Porco','Porco e Frango'],...rt.stops.map((s,i)=>[i+1,s.nota,s.dest,s.end,s.cidade,s.veg||0,s.porc||0,s.pf||0]),[],['','','','','TOTAL',tV,tP,tF]]);
+    ws['!cols']=[{wch:7},{wch:12},{wch:36},{wch:36},{wch:22},{wch:10},{wch:10},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,`Carro ${rt.car}`);
+  });
+  XLSX.writeFile(wb,`Roteirizacao_Kozzy_${today()}.xlsx`);
+}
 function saveSettings(){const k=document.getElementById('api-key').value.trim();if(k)localStorage.setItem('azir_gmaps_key',k);const msg=document.getElementById('cfg-msg');msg.textContent='✓ Configurações salvas!';setTimeout(()=>msg.textContent='',2500);}
 function getApiKey(){return document.getElementById('api-key').value.trim()||localStorage.getItem('azir_gmaps_key')||'';}
 function loadGMaps(key){return new Promise((resolve,reject)=>{if(window.google?.maps){resolve();return;}window.__gmapsCB=resolve;const s=document.createElement('script');s.src=`https://maps.googleapis.com/maps/api/js?key=${key}&callback=__gmapsCB`;s.onerror=()=>reject(new Error('Falha ao carregar Google Maps.'));document.head.appendChild(s);});}
