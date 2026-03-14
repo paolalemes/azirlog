@@ -80,8 +80,6 @@ tr.total-row td{font-weight:700;background:#EEF6EE;border-top:2px solid var(--bo
 .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .alert{padding:11px 15px;border-radius:8px;font-size:13px;margin-top:10px}
-.alert-warn{background:#FFF8E1;border:1px solid #FFD54F;color:#5D4037}
-.alert-info{background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0}
 .alert-ok{background:var(--green-light);border:1px solid #A5D6A7;color:#1B5E20}
 .form-label{display:block;font-size:13px;font-weight:600;margin-bottom:7px;color:var(--text)}
 .form-input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;font-family:inherit;outline:none;transition:border-color .2s;background:#fff}
@@ -97,22 +95,9 @@ select.form-input{cursor:pointer}
 .qty-blue{background:#E3F2FD;color:#1565C0}
 .qty-zero{color:#ccc;font-size:12px}
 #route-table td{padding:11px 14px;vertical-align:middle}
-#route-table .dest-cell{font-weight:600;font-size:13.5px}
-#route-table .addr-cell{font-size:12px;color:var(--muted);line-height:1.5}
 .city-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--muted);transition:all .15s;user-select:none}
 .city-chip.selected{background:var(--green);color:#fff;border-color:var(--green)}
 .city-chip:hover:not(.selected){border-color:var(--green);color:var(--green)}
-@media print{
-  .sidebar,.page-header,.card:not(.print-card),.actions,.btn,.upload-zone,#route-cfg,#sheet-st,#route-legend,#map{display:none!important}
-  .main{margin-left:0!important}
-  .page{display:block!important;padding:0!important}
-  #route-res{display:block!important}
-  .print-card{box-shadow:none!important;border:none!important}
-  .table-wrap{border:none!important}
-  table{font-size:11px}
-  th,td{padding:7px 10px!important}
-  @page{margin:1.5cm;size:A4 landscape}
-}
 #map{width:100%;height:420px;border-radius:10px;border:1px solid var(--border);margin-bottom:16px}
 .divider{border:none;border-top:1px solid var(--border);margin:20px 0}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
@@ -155,7 +140,6 @@ select.form-input{cursor:pointer}
 
 <main class="main">
 
-<!-- ──────────────── MÓDULO 1 ──────────────── -->
 <section class="page active" id="page-mod1">
   <div class="page-header">
     <div class="page-title">XML Kozzy — Entregas</div>
@@ -206,7 +190,6 @@ select.form-input{cursor:pointer}
   </div>
 </section>
 
-<!-- ──────────────── MÓDULO 2 ──────────────── -->
 <section class="page" id="page-mod2">
   <div class="page-header">
     <div class="page-title">XML Remessa / Retorno</div>
@@ -249,7 +232,6 @@ select.form-input{cursor:pointer}
   </div>
 </section>
 
-<!-- ──────────────── MÓDULO 3 ──────────────── -->
 <section class="page" id="page-mod3">
   <div class="page-header">
     <div class="page-title">Roteirização Kozzy</div>
@@ -358,7 +340,6 @@ select.form-input{cursor:pointer}
   </div>
 </section>
 
-<!-- ──────────────── CONFIGURAÇÕES ──────────────── -->
 <section class="page" id="page-settings">
   <div class="page-header">
     <div class="page-title">Configurações</div>
@@ -388,28 +369,15 @@ select.form-input{cursor:pointer}
 </main>
 
 <script>
-const S = { mod1:{files:[],data:[]}, mod2:{files:[],data:[]}, mod3:{rows:[],routes:[]} };
-
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item[data-page]').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  const nav=document.querySelector(`[data-page="${id}"]`);
-  if(nav) nav.classList.add('active');
-}
+const S={mod1:{files:[],data:[]},mod2:{files:[],data:[]},mod3:{rows:[],routes:[]}};
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item[data-page]').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');const nav=document.querySelector(`[data-page="${id}"]`);if(nav)nav.classList.add('active');}
 function onDrag(e,id){e.preventDefault();document.getElementById(id).classList.add('dragover');}
 function offDrag(id){document.getElementById(id).classList.remove('dragover');}
 function onDrop(e,zid,iid,mod){e.preventDefault();offDrag(zid);addFiles(Array.from(e.dataTransfer.files).filter(f=>f.name.endsWith('.xml')),mod);}
 function onFilePick(inp,mod){addFiles(Array.from(inp.files).filter(f=>f.name.endsWith('.xml')),mod);inp.value='';}
 function addFiles(files,mod){const ex=S[mod].files.map(f=>f.name);files.forEach(f=>{if(!ex.includes(f.name))S[mod].files.push(f);});renderFiles(mod);}
 function removeFile(mod,i){S[mod].files.splice(i,1);renderFiles(mod);}
-function renderFiles(mod){
-  const n=mod==='mod1'?'1':'2';
-  const el=document.getElementById('files'+n);
-  const btn=document.getElementById('btn'+n);
-  btn.disabled=!S[mod].files.length;
-  el.innerHTML=S[mod].files.map((f,i)=>`<div class="file-item"><span class="file-name"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${f.name}</span><button class="file-remove" onclick="removeFile('${mod}',${i})">✕</button></div>`).join('');
-}
+function renderFiles(mod){const n=mod==='mod1'?'1':'2';const el=document.getElementById('files'+n);const btn=document.getElementById('btn'+n);btn.disabled=!S[mod].files.length;el.innerHTML=S[mod].files.map((f,i)=>`<div class="file-item"><span class="file-name"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${f.name}</span><button class="file-remove" onclick="removeFile('${mod}',${i})">✕</button></div>`).join('');}
 function readTxt(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsText(file,'UTF-8');});}
 function xget(node,tag){const el=node.querySelector(tag);return el?el.textContent.trim():'';}
 function fmtDate(s){if(!s)return'';const d=s.substring(0,10);const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}
@@ -418,107 +386,61 @@ function today(){const d=new Date();return`${String(d.getDate()).padStart(2,'0')
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
 async function runMod1(){
-  const st=document.getElementById('st1');
-  st.innerHTML='<span class="loading"><span class="spinner"></span> Processando...</span>';
+  const st=document.getElementById('st1');st.innerHTML='<span class="loading"><span class="spinner"></span> Processando...</span>';
   const rows=[];
   for(const file of S.mod1.files){
     try{
-      const txt=await readTxt(file);
-      const doc=new DOMParser().parseFromString(txt,'text/xml');
+      const txt=await readTxt(file);const doc=new DOMParser().parseFromString(txt,'text/xml');
       const nNF=xget(doc,'nNF'),dhEmi=xget(doc,'dhEmi')||xget(doc,'dEmi'),destNome=xget(doc,'dest xNome');
       const xLgr=xget(doc,'enderDest xLgr'),nro=xget(doc,'enderDest nro'),xBai=xget(doc,'enderDest xBairro'),xMun=xget(doc,'enderDest xMun');
       const end=[xLgr,nro?`nº ${nro}`:'',xBai].filter(Boolean).join(', ');
       let veg=0,porc=0,pf=0;
-      doc.querySelectorAll('det').forEach(det=>{
-        const xp=xget(det,'xProd').toUpperCase();const q=parseFloat(xget(det,'qCom'))||0;
-        if(xp.includes('FRANGO'))pf+=q;
-        else if(xp.includes('PORCO')||xp.includes('SU'))porc+=q;
-        else veg+=q;
-      });
+      doc.querySelectorAll('det').forEach(det=>{const xp=xget(det,'xProd').toUpperCase();const q=parseFloat(xget(det,'qCom'))||0;if(xp.includes('FRANGO'))pf+=q;else if(xp.includes('PORCO')||xp.includes('SU'))porc+=q;else veg+=q;});
       rows.push({data:fmtDate(dhEmi),nota:nNF,dest:destNome,end,cidade:xMun,vNF:parseFloat(xget(doc,'vNF'))||0,veg,porc,pf,total:veg+porc+pf});
     }catch(e){console.error(file.name,e);}
   }
-  rows.sort((a,b)=>a.nota.localeCompare(b.nota));
-  S.mod1.data=rows;renderMod1(rows);
-  st.textContent=`✓ ${rows.length} nota(s) processada(s)`;
+  rows.sort((a,b)=>a.nota.localeCompare(b.nota));S.mod1.data=rows;renderMod1(rows);st.textContent=`✓ ${rows.length} nota(s) processada(s)`;
 }
 function renderMod1(rows){
   const tVeg=rows.reduce((s,r)=>s+r.veg,0),tPorc=rows.reduce((s,r)=>s+r.porc,0),tPF=rows.reduce((s,r)=>s+r.pf,0),tTot=rows.reduce((s,r)=>s+r.total,0);
   const cids=[...new Set(rows.map(r=>r.cidade))].length;
-  document.getElementById('sum1').innerHTML=`
-    <div class="summary-box"><div class="s-label">Notas</div><div class="s-value">${rows.length}</div></div>
-    <div class="summary-box"><div class="s-label">Cidades</div><div class="s-value">${cids}</div></div>
-    <div class="summary-box"><div class="s-label">Vegetais</div><div class="s-value s-green">${tVeg}</div></div>
-    <div class="summary-box"><div class="s-label">Porco</div><div class="s-value">${tPorc}</div></div>
-    <div class="summary-box"><div class="s-label">Porco e Frango</div><div class="s-value s-orange">${tPF}</div></div>
-    <div class="summary-box"><div class="s-label">Total Caixas</div><div class="s-value">${tTot}</div></div>`;
-  document.getElementById('tb1').innerHTML=rows.map(r=>`<tr>
-    <td>${r.data}</td><td><strong>${r.nota}</strong></td><td class="td-r">${fmtBRL(r.vNF)}</td>
-    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.dest}">${r.dest}</td>
-    <td>${r.cidade}</td>
-    <td class="${r.veg>0?'td-r':'td-zero'}">${r.veg||'—'}</td>
-    <td class="${r.porc>0?'td-r':'td-zero'}">${r.porc||'—'}</td>
-    <td class="${r.pf>0?'td-r':'td-zero'}">${r.pf||'—'}</td>
-  </tr>`).join('')+`<tr class="total-row"><td colspan="5">Total Geral</td><td class="td-r">${tVeg}</td><td class="td-r">${tPorc}</td><td class="td-r">${tPF}</td></tr>`;
+  document.getElementById('sum1').innerHTML=`<div class="summary-box"><div class="s-label">Notas</div><div class="s-value">${rows.length}</div></div><div class="summary-box"><div class="s-label">Cidades</div><div class="s-value">${cids}</div></div><div class="summary-box"><div class="s-label">Vegetais</div><div class="s-value s-green">${tVeg}</div></div><div class="summary-box"><div class="s-label">Porco</div><div class="s-value">${tPorc}</div></div><div class="summary-box"><div class="s-label">Porco e Frango</div><div class="s-value s-orange">${tPF}</div></div><div class="summary-box"><div class="s-label">Total Caixas</div><div class="s-value">${tTot}</div></div>`;
+  document.getElementById('tb1').innerHTML=rows.map(r=>`<tr><td>${r.data}</td><td><strong>${r.nota}</strong></td><td class="td-r">${fmtBRL(r.vNF)}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.dest}">${r.dest}</td><td>${r.cidade}</td><td class="${r.veg>0?'td-r':'td-zero'}">${r.veg||'—'}</td><td class="${r.porc>0?'td-r':'td-zero'}">${r.porc||'—'}</td><td class="${r.pf>0?'td-r':'td-zero'}">${r.pf||'—'}</td></tr>`).join('')+`<tr class="total-row"><td colspan="5">Total Geral</td><td class="td-r">${tVeg}</td><td class="td-r">${tPorc}</td><td class="td-r">${tPF}</td></tr>`;
   document.getElementById('res1').style.display='block';
 }
-function expXls1(){
-  const d=S.mod1.data;
-  const ws=XLSX.utils.aoa_to_sheet([['Data','Nº Nota','Vlr Nota','Destinatário','Endereço','Cidade','Vegetais','Porco','Porco e Frango'],...d.map(r=>[r.data,r.nota,r.vNF,r.dest,r.end,r.cidade,r.veg,r.porc,r.pf]),[],['','','','','','TOTAL',d.reduce((s,r)=>s+r.veg,0),d.reduce((s,r)=>s+r.porc,0),d.reduce((s,r)=>s+r.pf,0)]]);
-  ws['!cols']=[{wch:12},{wch:12},{wch:14},{wch:38},{wch:35},{wch:22},{wch:10},{wch:10},{wch:14}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Kozzy Entregas');XLSX.writeFile(wb,`Kozzy_Entregas_${today()}.xlsx`);
-}
-function copyTable1(){
-  const d=S.mod1.data;if(!d.length)return;
-  const tsv=d.map(r=>[r.data,r.nota,r.vNF,r.dest,r.cidade,r.veg||0,r.porc||0,r.pf||0].join('\t')).join('\n');
-  navigator.clipboard.writeText(tsv).then(()=>{const ok=document.getElementById('copy-ok1');ok.style.display='block';setTimeout(()=>ok.style.display='none',3500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=tsv;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);const ok=document.getElementById('copy-ok1');ok.style.display='block';setTimeout(()=>ok.style.display='none',3500);});
-}
+function expXls1(){const d=S.mod1.data;const ws=XLSX.utils.aoa_to_sheet([['Data','Nº Nota','Vlr Nota','Destinatário','Endereço','Cidade','Vegetais','Porco','Porco e Frango'],...d.map(r=>[r.data,r.nota,r.vNF,r.dest,r.end,r.cidade,r.veg,r.porc,r.pf]),[],['','','','','','TOTAL',d.reduce((s,r)=>s+r.veg,0),d.reduce((s,r)=>s+r.porc,0),d.reduce((s,r)=>s+r.pf,0)]]);ws['!cols']=[{wch:12},{wch:12},{wch:14},{wch:38},{wch:35},{wch:22},{wch:10},{wch:10},{wch:14}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Kozzy Entregas');XLSX.writeFile(wb,`Kozzy_Entregas_${today()}.xlsx`);}
+function copyTable1(){const d=S.mod1.data;if(!d.length)return;const tsv=d.map(r=>[r.data,r.nota,r.vNF,r.dest,r.cidade,r.veg||0,r.porc||0,r.pf||0].join('\t')).join('\n');navigator.clipboard.writeText(tsv).then(()=>{const ok=document.getElementById('copy-ok1');ok.style.display='block';setTimeout(()=>ok.style.display='none',3500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=tsv;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);const ok=document.getElementById('copy-ok1');ok.style.display='block';setTimeout(()=>ok.style.display='none',3500);});}
 
 async function runMod2(){
-  const st=document.getElementById('st2');
-  st.innerHTML='<span class="loading"><span class="spinner"></span> Processando...</span>';
+  const st=document.getElementById('st2');st.innerHTML='<span class="loading"><span class="spinner"></span> Processando...</span>';
   const rows=[];
   for(const file of S.mod2.files){
-    try{
-      const txt=await readTxt(file);const doc=new DOMParser().parseFromString(txt,'text/xml');
-      const nNF=xget(doc,'nNF'),dhEmi=xget(doc,'dhEmi')||xget(doc,'dEmi'),emit=xget(doc,'emit xNome')||xget(doc,'emit xFant'),dest=xget(doc,'dest xNome');
-      doc.querySelectorAll('det').forEach(det=>{rows.push({data:fmtDate(dhEmi),nota:nNF,emit,dest,prod:xget(det,'xProd'),qtde:parseFloat(xget(det,'qCom'))||0,un:xget(det,'uCom'),vUnit:parseFloat(xget(det,'vUnCom'))||0,vTot:parseFloat(xget(det,'vProd'))||0});});
-    }catch(e){console.error(file.name,e);}
+    try{const txt=await readTxt(file);const doc=new DOMParser().parseFromString(txt,'text/xml');const nNF=xget(doc,'nNF'),dhEmi=xget(doc,'dhEmi')||xget(doc,'dEmi'),emit=xget(doc,'emit xNome')||xget(doc,'emit xFant'),dest=xget(doc,'dest xNome');doc.querySelectorAll('det').forEach(det=>{rows.push({data:fmtDate(dhEmi),nota:nNF,emit,dest,prod:xget(det,'xProd'),qtde:parseFloat(xget(det,'qCom'))||0,un:xget(det,'uCom'),vUnit:parseFloat(xget(det,'vUnCom'))||0,vTot:parseFloat(xget(det,'vProd'))||0});});}catch(e){console.error(file.name,e);}
   }
   S.mod2.data=rows;renderMod2(rows);st.textContent=`✓ ${rows.length} item(ns) processado(s)`;
 }
 function renderMod2(rows){
   const notas=[...new Set(rows.map(r=>r.nota))].length,tVlr=rows.reduce((s,r)=>s+r.vTot,0);
   document.getElementById('sum2').innerHTML=`<div class="summary-box"><div class="s-label">Notas</div><div class="s-value">${notas}</div></div><div class="summary-box"><div class="s-label">Itens</div><div class="s-value">${rows.length}</div></div><div class="summary-box"><div class="s-label">Valor Total</div><div class="s-value s-green" style="font-size:17px">${fmtBRL(tVlr)}</div></div>`;
-  let lastN=null;
-  document.getElementById('tb2').innerHTML=rows.map(r=>{let hdr='';if(r.nota!==lastN){hdr=`<tr class="city-row"><td colspan="9">Nota ${r.nota} · ${r.data} · ${r.emit} → ${r.dest}</td></tr>`;lastN=r.nota;}return hdr+`<tr><td>${r.data}</td><td><strong>${r.nota}</strong></td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.emit}">${r.emit}</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.dest}">${r.dest}</td><td>${r.prod}</td><td class="td-r">${r.qtde}</td><td>${r.un}</td><td class="td-r">${fmtBRL(r.vUnit)}</td><td class="td-r">${fmtBRL(r.vTot)}</td></tr>`;}).join('');
+  let lastN=null;document.getElementById('tb2').innerHTML=rows.map(r=>{let hdr='';if(r.nota!==lastN){hdr=`<tr class="city-row"><td colspan="9">Nota ${r.nota} · ${r.data} · ${r.emit} → ${r.dest}</td></tr>`;lastN=r.nota;}return hdr+`<tr><td>${r.data}</td><td><strong>${r.nota}</strong></td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.emit}">${r.emit}</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.dest}">${r.dest}</td><td>${r.prod}</td><td class="td-r">${r.qtde}</td><td>${r.un}</td><td class="td-r">${fmtBRL(r.vUnit)}</td><td class="td-r">${fmtBRL(r.vTot)}</td></tr>`;}).join('');
   document.getElementById('res2').style.display='block';
 }
-function expXls2(){
-  const d=S.mod2.data;
-  const ws=XLSX.utils.aoa_to_sheet([['Data','Nº Nota','Emitente','Destinatário','Produto','Qtde','Un.','Vlr Unit.','Vlr Total'],...d.map(r=>[r.data,r.nota,r.emit,r.dest,r.prod,r.qtde,r.un,r.vUnit,r.vTot])]);
-  ws['!cols']=[{wch:12},{wch:12},{wch:35},{wch:35},{wch:40},{wch:10},{wch:7},{wch:13},{wch:13}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Remessa Retorno');XLSX.writeFile(wb,`Remessa_Retorno_${today()}.xlsx`);
-}
+function expXls2(){const d=S.mod2.data;const ws=XLSX.utils.aoa_to_sheet([['Data','Nº Nota','Emitente','Destinatário','Produto','Qtde','Un.','Vlr Unit.','Vlr Total'],...d.map(r=>[r.data,r.nota,r.emit,r.dest,r.prod,r.qtde,r.un,r.vUnit,r.vTot])]);ws['!cols']=[{wch:12},{wch:12},{wch:35},{wch:35},{wch:40},{wch:10},{wch:7},{wch:13},{wch:13}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Remessa Retorno');XLSX.writeFile(wb,`Remessa_Retorno_${today()}.xlsx`);}
 
 function parseSheetUrl(url){const id=(url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)||[])[1];return{id};}
 async function loadSheet(){
-  const url=document.getElementById('sheet-url').value.trim();
-  const st=document.getElementById('sheet-st');
+  const url=document.getElementById('sheet-url').value.trim();const st=document.getElementById('sheet-st');
   if(!url){st.innerHTML='<span style="color:#c00">⚠️ Cole o link da planilha</span>';return;}
-  if(url.includes('/spreadsheets/d/e/')){st.innerHTML='<span style="color:#c00">⚠️ Use o link de <strong>Compartilhar</strong>, não o de "Publicar na Web"</span>';return;}
-  const{id}=parseSheetUrl(url);
-  if(!id){st.innerHTML='<span style="color:#c00">⚠️ Link inválido.</span>';return;}
+  if(url.includes('/spreadsheets/d/e/')){st.innerHTML='<span style="color:#c00">⚠️ Use o link de <strong>Compartilhar</strong></span>';return;}
+  const{id}=parseSheetUrl(url);if(!id){st.innerHTML='<span style="color:#c00">⚠️ Link inválido.</span>';return;}
   st.innerHTML='<span class="loading"><span class="spinner"></span> Carregando planilha...</span>';
   try{
     const attempts=[`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=ROTEIRIZACAO`,`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('ROTEIRIZAÇÃO')}`,`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`];
     let text='',ok=false;
     for(const csvUrl of attempts){const res=await fetch(csvUrl);if(!res.ok)continue;const t=await res.text();if(!t.trim().startsWith('<!') && t.trim()!==''){text=t;ok=true;break;}}
-    if(!ok)throw new Error('Não foi possível acessar a planilha. Confirme que está compartilhada como "qualquer pessoa com o link pode ver".');
-    const parsed=Papa.parse(text,{skipEmptyLines:false});
-    const allRows=parsed.data;
-    let hIdx=-1;
-    for(let i=0;i<Math.min(allRows.length,10);i++){const s=allRows[i].join('|').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');if(s.includes('NOTA')&&(s.includes('DESTINATA')||s.includes('ENDERE'))){hIdx=i;break;}}
+    if(!ok)throw new Error('Não foi possível acessar a planilha. Confirme que está compartilhada publicamente.');
+    const parsed=Papa.parse(text,{skipEmptyLines:false});const allRows=parsed.data;
+    let hIdx=-1;for(let i=0;i<Math.min(allRows.length,10);i++){const s=allRows[i].join('|').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');if(s.includes('NOTA')&&(s.includes('DESTINATA')||s.includes('ENDERE'))){hIdx=i;break;}}
     if(hIdx<0)hIdx=1;
     const headers=(allRows[hIdx]||[]).map(h=>h.trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
     const rows=allRows.slice(hIdx+1).filter(r=>r&&r.some(c=>c&&c.trim()));
@@ -543,13 +465,9 @@ async function loadSheet(){
 }
 
 async function calcRoutes(){
-  const key=getApiKey();
-  if(!key){alert('Configure a Google Maps API Key em Configurações primeiro.');showPage('settings');return;}
-  const nCars=parseInt(document.getElementById('n-cars').value)||1;
-  const filt=document.getElementById('filt-status').value;
-  const mode=document.getElementById('balance-mode').value;
-  const st=document.getElementById('st3'),btn=document.getElementById('btn-route');
-  btn.disabled=true;
+  const key=getApiKey();if(!key){alert('Configure a Google Maps API Key em Configurações primeiro.');showPage('settings');return;}
+  const nCars=parseInt(document.getElementById('n-cars').value)||1,filt=document.getElementById('filt-status').value,mode=document.getElementById('balance-mode').value;
+  const st=document.getElementById('st3'),btn=document.getElementById('btn-route');btn.disabled=true;
   const selCities=[...document.querySelectorAll('.city-chip.selected')].map(c=>c.dataset.city);
   let rows=[...S.mod3.rows];
   if(filt==='pending')rows=rows.filter(r=>{const s=r.status.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');return s.includes('NAO')||!r.status;});
@@ -557,20 +475,17 @@ async function calcRoutes(){
   if(!rows.length){st.innerHTML='<span style="color:#c00">Nenhuma entrega encontrada.</span>';btn.disabled=false;return;}
   st.innerHTML='<span class="loading"><span class="spinner"></span> Carregando Google Maps...</span>';
   await loadGMaps(key);
-  const geocoder=new google.maps.Geocoder();
-  let done=0;const failed=[];
+  const geocoder=new google.maps.Geocoder();let done=0;const failed=[];
   for(const row of rows){
     const addr=`${row.end}, ${row.cidade}, São Paulo, Brasil`;
     try{const r=await new Promise((res,rej)=>geocoder.geocode({address:addr},(results,status)=>{if(status==='OK'&&results[0])res(results[0].geometry.location);else rej(status);}));row.lat=r.lat();row.lng=r.lng();}
     catch(e){failed.push(row.nota);row.lat=null;row.lng=null;}
-    done++;st.innerHTML=`<span class="loading"><span class="spinner"></span> Geocodificando ${done}/${rows.length}...</span>`;
-    await sleep(80);
+    done++;st.innerHTML=`<span class="loading"><span class="spinner"></span> Geocodificando ${done}/${rows.length}...</span>`;await sleep(80);
   }
   const valid=rows.filter(r=>r.lat),invalid=rows.filter(r=>!r.lat);
   const clusters=clusterRoutes(valid,nCars,mode);
   const routes=clusters.filter(c=>c.length).map((cl,i)=>({car:i+1,stops:nearestNeighbor(cl)}));
-  S.mod3.routes=routes;S.mod3.failed=invalid;
-  renderRoutes(routes,invalid);
+  S.mod3.routes=routes;S.mod3.failed=invalid;renderRoutes(routes,invalid);
   let msg=`<span style="color:var(--green)">✓ ${routes.length} rota(s) calculada(s)</span>`;
   if(failed.length)msg+=` &nbsp;<span style="color:var(--orange)">⚠️ ${failed.length} não encontrado(s): Nota(s) ${failed.join(', ')}</span>`;
   st.innerHTML=msg;btn.disabled=false;
@@ -578,78 +493,33 @@ async function calcRoutes(){
 function clusterRoutes(pts,k,mode){
   if(k===1)return[pts];if(pts.length<=k)return pts.map(p=>[p]);
   let centers=pts.slice(0,k).map(p=>({lat:p.lat,lng:p.lng})),clusters=[];
-  for(let iter=0;iter<30;iter++){
-    clusters=Array.from({length:k},()=>[]);
-    pts.forEach(p=>{let min=Infinity,idx=0;centers.forEach((c,i)=>{const d=(p.lat-c.lat)**2+(p.lng-c.lng)**2;if(d<min){min=d;idx=i;}});clusters[idx].push(p);});
-    centers=clusters.map((cl,i)=>cl.length?{lat:cl.reduce((s,r)=>s+r.lat,0)/cl.length,lng:cl.reduce((s,r)=>s+r.lng,0)/cl.length}:centers[i]);
-  }
-  if(mode==='notes')clusters=rebalance(clusters,pts,centers,p=>1);
-  else if(mode==='items')clusters=rebalance(clusters,pts,centers,p=>(p.veg||0)+(p.porc||0)+(p.pf||0)||1);
+  for(let iter=0;iter<30;iter++){clusters=Array.from({length:k},()=>[]);pts.forEach(p=>{let min=Infinity,idx=0;centers.forEach((c,i)=>{const d=(p.lat-c.lat)**2+(p.lng-c.lng)**2;if(d<min){min=d;idx=i;}});clusters[idx].push(p);});centers=clusters.map((cl,i)=>cl.length?{lat:cl.reduce((s,r)=>s+r.lat,0)/cl.length,lng:cl.reduce((s,r)=>s+r.lng,0)/cl.length}:centers[i]);}
+  if(mode==='notes')clusters=rebalance(clusters,pts,centers,p=>1);else if(mode==='items')clusters=rebalance(clusters,pts,centers,p=>(p.veg||0)+(p.porc||0)+(p.pf||0)||1);
   return clusters;
 }
 function rebalance(clusters,pts,centers,weightFn){
   const k=clusters.length,target=pts.reduce((s,p)=>s+weightFn(p),0)/k;
-  for(let pass=0;pass<20;pass++){
-    let moved=false;
-    for(let i=0;i<k;i++){
-      const wi=clusters[i].reduce((s,p)=>s+weightFn(p),0);if(wi<=target*1.1)continue;
-      clusters[i].forEach((p,pi)=>{
-        if(moved)return;let bestJ=-1,bestD=Infinity;
-        for(let j=0;j<k;j++){if(j===i)continue;const wj=clusters[j].reduce((s,p2)=>s+weightFn(p2),0);if(wj>=target*0.9)continue;const d=(p.lat-centers[j].lat)**2+(p.lng-centers[j].lng)**2;if(d<bestD){bestD=d;bestJ=j;}}
-        if(bestJ>=0){clusters[bestJ].push(...clusters[i].splice(pi,1));moved=true;}
-      });
-    }
-    if(!moved)break;
-  }
+  for(let pass=0;pass<20;pass++){let moved=false;for(let i=0;i<k;i++){const wi=clusters[i].reduce((s,p)=>s+weightFn(p),0);if(wi<=target*1.1)continue;clusters[i].forEach((p,pi)=>{if(moved)return;let bestJ=-1,bestD=Infinity;for(let j=0;j<k;j++){if(j===i)continue;const wj=clusters[j].reduce((s,p2)=>s+weightFn(p2),0);if(wj>=target*0.9)continue;const d=(p.lat-centers[j].lat)**2+(p.lng-centers[j].lng)**2;if(d<bestD){bestD=d;bestJ=j;}}if(bestJ>=0){clusters[bestJ].push(...clusters[i].splice(pi,1));moved=true;}});}if(!moved)break;}
   return clusters;
 }
-function nearestNeighbor(stops){
-  if(stops.length<=1)return stops;
-  const unv=[...stops],route=[unv.splice(0,1)[0]];
-  while(unv.length){const last=route[route.length-1];let min=Infinity,idx=0;unv.forEach((s,i)=>{const d=(s.lat-last.lat)**2+(s.lng-last.lng)**2;if(d<min){min=d;idx=i;}});route.push(unv.splice(idx,1)[0]);}
-  return route;
-}
+function nearestNeighbor(stops){if(stops.length<=1)return stops;const unv=[...stops],route=[unv.splice(0,1)[0]];while(unv.length){const last=route[route.length-1];let min=Infinity,idx=0;unv.forEach((s,i)=>{const d=(s.lat-last.lat)**2+(s.lng-last.lng)**2;if(d<min){min=d;idx=i;}});route.push(unv.splice(idx,1)[0]);}return route;}
 const CAR_COLORS=['#C0392B','#1565C0','#6A1B9A','#00695C','#E65100','#558B2F','#4527A0'];
 function renderRoutes(routes,failed=[]){
-  const tV=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.veg||0),0);
-  const tP=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.porc||0),0);
-  const tF=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.pf||0),0);
-  const tN=routes.flatMap(r=>r.stops).length;
-  document.getElementById('route-summary-boxes').innerHTML=`
-    <div class="summary-box"><div class="s-label">Entregas roteirizadas</div><div class="s-value">${tN}</div></div>
-    <div class="summary-box"><div class="s-label">Carros</div><div class="s-value">${routes.length}</div></div>
-    <div class="summary-box"><div class="s-label">Total VEGETAIS</div><div class="s-value s-green">${tV}</div></div>
-    <div class="summary-box"><div class="s-label">Total PORCO</div><div class="s-value">${tP}</div></div>
-    <div class="summary-box"><div class="s-label">Total PORCO E FRANGO</div><div class="s-value s-orange">${tF}</div></div>
-    ${failed.length?`<div class="summary-box" style="border-color:#FFD54F;background:#FFF8E1"><div class="s-label">Não geocodificados</div><div class="s-value" style="color:var(--orange)">${failed.length}</div></div>`:''}`;
+  const tV=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.veg||0),0),tP=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.porc||0),0),tF=routes.flatMap(r=>r.stops).reduce((s,p)=>s+(p.pf||0),0),tN=routes.flatMap(r=>r.stops).length;
+  document.getElementById('route-summary-boxes').innerHTML=`<div class="summary-box"><div class="s-label">Entregas roteirizadas</div><div class="s-value">${tN}</div></div><div class="summary-box"><div class="s-label">Carros</div><div class="s-value">${routes.length}</div></div><div class="summary-box"><div class="s-label">Total VEGETAIS</div><div class="s-value s-green">${tV}</div></div><div class="summary-box"><div class="s-label">Total PORCO</div><div class="s-value">${tP}</div></div><div class="summary-box"><div class="s-label">Total PORCO E FRANGO</div><div class="s-value s-orange">${tF}</div></div>${failed.length?`<div class="summary-box" style="border-color:#FFD54F;background:#FFF8E1"><div class="s-label">Não geocodificados</div><div class="s-value" style="color:var(--orange)">${failed.length}</div></div>`:''}`;
   document.getElementById('route-legend').innerHTML=routes.map((rt,ri)=>{const col=CAR_COLORS[ri%CAR_COLORS.length];return`<div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span style="width:14px;height:14px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0"></span>Carro ${rt.car} — ${rt.stops.length} entrega${rt.stops.length!==1?'s':''}</div>`;}).join('');
   const mapEl=document.getElementById('map');mapEl.style.height='420px';
   const map=new google.maps.Map(mapEl,{zoom:11,center:{lat:-23.55,lng:-46.63},mapTypeControl:false,streetViewControl:false,styles:[{featureType:'poi',stylers:[{visibility:'off'}]}]});
-  routes.forEach((rt,ri)=>{
-    const col=CAR_COLORS[ri%CAR_COLORS.length];
-    rt.stops.forEach((s,si)=>{new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,title:`[Carro ${rt.car}] ${s.dest}`,label:{text:String(si+1),color:'white',fontWeight:'bold',fontSize:'11px'},icon:{path:google.maps.SymbolPath.CIRCLE,scale:14,fillColor:col,fillOpacity:1,strokeColor:'white',strokeWeight:2}});});
-    if(rt.stops.length>1)new google.maps.Polyline({path:rt.stops.map(s=>({lat:s.lat,lng:s.lng})),geodesic:true,strokeColor:col,strokeOpacity:.6,strokeWeight:3,map});
-  });
-  const sel=document.getElementById('car-filter');
-  sel.innerHTML='<option value="all">Todos os carros</option>'+routes.map(rt=>`<option value="${rt.car}">Carro ${rt.car}</option>`).join('');
+  routes.forEach((rt,ri)=>{const col=CAR_COLORS[ri%CAR_COLORS.length];rt.stops.forEach((s,si)=>{new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,title:`[Carro ${rt.car}] ${s.dest}`,label:{text:String(si+1),color:'white',fontWeight:'bold',fontSize:'11px'},icon:{path:google.maps.SymbolPath.CIRCLE,scale:14,fillColor:col,fillOpacity:1,strokeColor:'white',strokeWeight:2}});});if(rt.stops.length>1)new google.maps.Polyline({path:rt.stops.map(s=>({lat:s.lat,lng:s.lng})),geodesic:true,strokeColor:col,strokeOpacity:.6,strokeWeight:3,map});});
+  const sel=document.getElementById('car-filter');sel.innerHTML='<option value="all">Todos os carros</option>'+routes.map(rt=>`<option value="${rt.car}">Carro ${rt.car}</option>`).join('');
   S.mod3._allRows=routes.flatMap((rt,ri)=>rt.stops.map((s,si)=>({...s,carNum:rt.car,carColor:CAR_COLORS[ri%CAR_COLORS.length],order:si+1})));
-  renderRouteTable(S.mod3._allRows);
-  document.getElementById('route-res').style.display='block';
-  document.getElementById('route-res').scrollIntoView({behavior:'smooth'});
+  renderRouteTable(S.mod3._allRows);document.getElementById('route-res').style.display='block';document.getElementById('route-res').scrollIntoView({behavior:'smooth'});
 }
 function renderRouteTable(rows){
-  document.getElementById('route-tbody').innerHTML=rows.map(s=>{
-    const col=s.carColor;
-    const vChip=s.veg>0?`<span class="qty-chip qty-green">${s.veg}</span>`:`<span class="qty-zero">—</span>`;
-    const pChip=s.porc>0?`<span class="qty-chip qty-blue">${s.porc}</span>`:`<span class="qty-zero">—</span>`;
-    const fChip=s.pf>0?`<span class="qty-chip qty-orange">${s.pf}</span>`:`<span class="qty-zero">—</span>`;
-    return`<tr data-car="${s.carNum}"><td><span class="car-badge" style="background:${col}">Carro ${s.carNum}</span></td><td style="font-weight:700;font-size:15px;text-align:center">${s.order}</td><td style="font-weight:600">${s.nota}</td><td style="font-weight:600">${s.dest}</td><td style="font-size:12px;color:var(--muted)">${s.end}${s.cidade?'<br><span style="color:var(--green);font-weight:600">'+s.cidade+'</span>':''}</td><td style="font-weight:600">${s.cidade||''}</td><td style="text-align:center">${vChip}</td><td style="text-align:center">${pChip}</td><td style="text-align:center">${fChip}</td></tr>`;
-  }).join('');
+  document.getElementById('route-tbody').innerHTML=rows.map(s=>{const col=s.carColor;const vChip=s.veg>0?`<span class="qty-chip qty-green">${s.veg}</span>`:`<span class="qty-zero">—</span>`;const pChip=s.porc>0?`<span class="qty-chip qty-blue">${s.porc}</span>`:`<span class="qty-zero">—</span>`;const fChip=s.pf>0?`<span class="qty-chip qty-orange">${s.pf}</span>`:`<span class="qty-zero">—</span>`;return`<tr data-car="${s.carNum}"><td><span class="car-badge" style="background:${col}">Carro ${s.carNum}</span></td><td style="font-weight:700;font-size:15px;text-align:center">${s.order}</td><td style="font-weight:600">${s.nota}</td><td style="font-weight:600">${s.dest}</td><td style="font-size:12px;color:var(--muted)">${s.end}${s.cidade?'<br><span style="color:var(--green);font-weight:600">'+s.cidade+'</span>':''}</td><td style="font-weight:600">${s.cidade||''}</td><td style="text-align:center">${vChip}</td><td style="text-align:center">${pChip}</td><td style="text-align:center">${fChip}</td></tr>`;}).join('');
 }
-function filterCarTable(){
-  const v=document.getElementById('car-filter').value;
-  renderRouteTable(v==='all'?S.mod3._allRows:S.mod3._allRows.filter(r=>String(r.carNum)===v));
-}
+function filterCarTable(){const v=document.getElementById('car-filter').value;renderRouteTable(v==='all'?S.mod3._allRows:S.mod3._allRows.filter(r=>String(r.carNum)===v));}
+
 function printRoute(){
   const carSel=document.getElementById('car-filter').value;
   const routes=carSel==='all'?S.mod3.routes:S.mod3.routes.filter(r=>String(r.car)===carSel);
@@ -659,61 +529,55 @@ function printRoute(){
   const routeHtml=routes.map(rt=>{
     const col=CP[riMap[rt.car]%CP.length];
     const tV=rt.stops.reduce((s,r)=>s+(r.veg||0),0),tP=rt.stops.reduce((s,r)=>s+(r.porc||0),0),tF=rt.stops.reduce((s,r)=>s+(r.pf||0),0);
-    const rowsHtml=rt.stops.map((s,si)=>`<tr><td style="text-align:center;font-weight:700;font-size:15px">${si+1}</td><td style="font-weight:600">${s.nota}</td><td style="font-weight:600">${s.dest}</td><td style="font-size:11px;color:#555">${s.end}${s.cidade?', '+s.cidade:''}</td><td style="text-align:center;font-weight:700;color:${s.veg>0?'#1B5E20':'#ccc'}">${s.veg||'—'}</td><td style="text-align:center;font-weight:700;color:${s.porc>0?'#1565C0':'#ccc'}">${s.porc||'—'}</td><td style="text-align:center;font-weight:700;color:${s.pf>0?'#E65100':'#ccc'}">${s.pf||'—'}</td></tr>`).join('');
-    return`<div class="car-section"><div class="car-title" style="background:${col}">🚗 Carro ${rt.car} &nbsp;·&nbsp; ${rt.stops.length} entrega${rt.stops.length!==1?'s':''} &nbsp;·&nbsp; Vegetais: ${tV} &nbsp;·&nbsp; Porco: ${tP} &nbsp;·&nbsp; P. e Frango: ${tF}</div><table><thead><tr><th style="width:50px">Ordem</th><th style="width:90px">Nota</th><th style="width:200px">Destinatário</th><th>Endereço</th><th style="width:70px;text-align:center">VEGETAIS</th><th style="width:60px;text-align:center">PORCO</th><th style="width:80px;text-align:center">P. FRANGO</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td colspan="4" style="font-weight:700;text-align:right;padding-right:12px">TOTAL SEPARAÇÃO:</td><td style="text-align:center;font-weight:800;color:#1B5E20">${tV}</td><td style="text-align:center;font-weight:800;color:#1565C0">${tP}</td><td style="text-align:center;font-weight:800;color:#E65100">${tF}</td></tr></tfoot></table></div>`;
+    const rowsHtml=rt.stops.map((s,si)=>`<tr><td style="text-align:center;font-weight:700">${si+1}</td><td style="font-weight:600">${s.nota}</td><td style="font-weight:600">${s.dest}</td><td style="font-size:11px;color:#555">${s.end}${s.cidade?', '+s.cidade:''}</td><td style="text-align:center;font-weight:700;color:${s.veg>0?'#1B5E20':'#ccc'}">${s.veg||'—'}</td><td style="text-align:center;font-weight:700;color:${s.porc>0?'#1565C0':'#ccc'}">${s.porc||'—'}</td><td style="text-align:center;font-weight:700;color:${s.pf>0?'#E65100':'#ccc'}">${s.pf||'—'}</td></tr>`).join('');
+    return`<div class="car-section"><div class="car-title" style="background:${col}">🚗 Carro ${rt.car} · ${rt.stops.length} entrega${rt.stops.length!==1?'s':''} · Vegetais: ${tV} · Porco: ${tP} · P. e Frango: ${tF}</div><table><thead><tr><th style="width:45px">Ordem</th><th style="width:85px">Nota</th><th style="width:190px">Destinatário</th><th>Endereço</th><th style="width:65px;text-align:center">VEG</th><th style="width:55px;text-align:center">PORC</th><th style="width:75px;text-align:center">P.FRANGO</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td colspan="4" style="font-weight:700;text-align:right;padding-right:12px">TOTAL SEPARAÇÃO:</td><td style="text-align:center;font-weight:800;color:#1B5E20">${tV}</td><td style="text-align:center;font-weight:800;color:#1565C0">${tP}</td><td style="text-align:center;font-weight:800;color:#E65100">${tF}</td></tr></tfoot></table></div>`;
   }).join('');
   const label=carSel==='all'?'Todos os Carros':`Carro ${carSel}`;
   const win=window.open('','_blank');
   win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR"><head>
-<meta charset="UTF-8">
+<html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Roteirização Kozzy — ${label}</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:20px}
-  .toolbar{position:fixed;top:12px;right:16px;display:flex;gap:10px;z-index:999;background:rgba(255,255,255,.95);padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-  .print-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #03591B}
-  .logo-azir{font-size:22px;font-weight:900;color:#03591B}
-  .logo-log{color:#DA7800}
-  .print-meta{font-size:11px;color:#555;text-align:right;line-height:1.6}
-  .car-section{margin-bottom:24px;page-break-inside:avoid}
-  .car-title{color:#fff;padding:9px 14px;font-size:13px;font-weight:700;border-radius:6px 6px 0 0}
-  table{width:100%;border-collapse:collapse;border:1px solid #ddd;border-top:none}
-  th{background:#f5f5f5;padding:7px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #ddd;text-align:left}
-  td{padding:7px 10px;border-bottom:1px solid #eee;vertical-align:middle}
-  tfoot td{background:#f9f9f9;border-top:2px solid #ddd;padding:8px 10px}
-  tr:last-child td{border-bottom:none}
-  @media print{
-    .toolbar{display:none!important}
-    body{padding:10px}
-    @page{margin:1cm;size:A4 landscape}
-    .car-section{page-break-inside:avoid}
-  }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:12px;color:#111}
+.toolbar{position:fixed;top:10px;right:14px;display:flex;gap:8px;z-index:999;background:rgba(255,255,255,.96);padding:7px 10px;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.content{padding:16px 20px}
+.print-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #03591B;margin-bottom:14px}
+.logo-azir{font-size:20px;font-weight:900;color:#03591B}
+.logo-log{color:#DA7800}
+.print-meta{font-size:11px;color:#555;text-align:right;line-height:1.6}
+.car-section{margin-bottom:18px}
+.car-title{color:#fff;padding:8px 12px;font-size:12px;font-weight:700;border-radius:5px 5px 0 0}
+table{width:100%;border-collapse:collapse;border:1px solid #ddd;border-top:none}
+th{background:#f0f0f0;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid #ddd;text-align:left}
+td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+tfoot td{background:#f9f9f9;border-top:2px solid #ddd;font-size:11px}
+tr:last-child td{border-bottom:none}
+@media print{
+  .toolbar{display:none!important}
+  body{padding:0}
+  .content{padding:10px 12px}
+  @page{margin:0.8cm;size:A4 landscape}
+}
 </style>
 </head><body>
 <div class="toolbar">
-  <button onclick="window.print()" style="padding:9px 20px;background:#03591B;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer">🖨️ Imprimir / Salvar PDF</button>
-  <button onclick="window.close()" style="padding:9px 20px;background:#eee;border:none;border-radius:7px;font-size:13px;cursor:pointer">Fechar</button>
+  <button onclick="window.print()" style="padding:8px 16px;background:#03591B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Imprimir / PDF</button>
+  <button onclick="window.close()" style="padding:8px 16px;background:#eee;border:none;border-radius:6px;font-size:12px;cursor:pointer">Fechar</button>
 </div>
+<div class="content">
 <div class="print-header">
   <div class="logo-azir">Azir<span class="logo-log">Log</span></div>
-  <div style="font-size:14px;font-weight:700">Roteirização Kozzy — ${label}</div>
+  <div style="font-size:13px;font-weight:700">Roteirização Kozzy — ${label}</div>
   <div class="print-meta">Data: ${new Date().toLocaleDateString('pt-BR')}<br>AzirLog LTDA · contato@azirlog.com.br</div>
 </div>
 ${routeHtml}
+</div>
 </body></html>`);
   win.document.close();
 }
-function expRouteXls(){
-  const wb=XLSX.utils.book_new();
-  S.mod3.routes.forEach(rt=>{
-    const tV=rt.stops.reduce((s,r)=>s+(r.veg||0),0),tP=rt.stops.reduce((s,r)=>s+(r.porc||0),0),tF=rt.stops.reduce((s,r)=>s+(r.pf||0),0);
-    const ws=XLSX.utils.aoa_to_sheet([[`CARRO ${rt.car} — Roteirização Kozzy`],[],['Ordem','Nota','Destinatário','Endereço','Cidade','Vegetais','Porco','Porco e Frango'],...rt.stops.map((s,i)=>[i+1,s.nota,s.dest,s.end,s.cidade,s.veg||0,s.porc||0,s.pf||0]),[],['','','','','TOTAL',tV,tP,tF]]);
-    ws['!cols']=[{wch:7},{wch:12},{wch:36},{wch:36},{wch:22},{wch:10},{wch:10},{wch:14}];
-    XLSX.utils.book_append_sheet(wb,ws,`Carro ${rt.car}`);
-  });
-  XLSX.writeFile(wb,`Roteirizacao_Kozzy_${today()}.xlsx`);
-}
+
+function expRouteXls(){const wb=XLSX.utils.book_new();S.mod3.routes.forEach(rt=>{const tV=rt.stops.reduce((s,r)=>s+(r.veg||0),0),tP=rt.stops.reduce((s,r)=>s+(r.porc||0),0),tF=rt.stops.reduce((s,r)=>s+(r.pf||0),0);const ws=XLSX.utils.aoa_to_sheet([[`CARRO ${rt.car} — Roteirização Kozzy`],[],['Ordem','Nota','Destinatário','Endereço','Cidade','Vegetais','Porco','Porco e Frango'],...rt.stops.map((s,i)=>[i+1,s.nota,s.dest,s.end,s.cidade,s.veg||0,s.porc||0,s.pf||0]),[],['','','','','TOTAL',tV,tP,tF]]);ws['!cols']=[{wch:7},{wch:12},{wch:36},{wch:36},{wch:22},{wch:10},{wch:10},{wch:14}];XLSX.utils.book_append_sheet(wb,ws,`Carro ${rt.car}`);});XLSX.writeFile(wb,`Roteirizacao_Kozzy_${today()}.xlsx`);}
 function saveSettings(){const k=document.getElementById('api-key').value.trim();if(k)localStorage.setItem('azir_gmaps_key',k);const msg=document.getElementById('cfg-msg');msg.textContent='✓ Configurações salvas!';setTimeout(()=>msg.textContent='',2500);}
 function getApiKey(){return document.getElementById('api-key').value.trim()||localStorage.getItem('azir_gmaps_key')||'';}
 function loadGMaps(key){return new Promise((resolve,reject)=>{if(window.google?.maps){resolve();return;}window.__gmapsCB=resolve;const s=document.createElement('script');s.src=`https://maps.googleapis.com/maps/api/js?key=${key}&callback=__gmapsCB`;s.onerror=()=>reject(new Error('Falha ao carregar Google Maps.'));document.head.appendChild(s);});}
