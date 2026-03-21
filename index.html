@@ -504,35 +504,72 @@ async function calcRoutes(){
   const optClusters=interRouteOpt(clusters,depot);
   const routes=optClusters.filter(c=>c.length).map((cl,i)=>({car:i+1,stops:buildRoute(cl,depot),distKm:null}));
   S.mod3.routes=routes;S.mod3.failed=invalid;
-  st.innerHTML=`<span class="loading"><span class="spinner"></span> Calculando distâncias reais...</span>`;
-  await calcDistances(routes,originAddr);
+  await calcDistances(routes,originAddr,depot,st);
   renderRoutes(routes,invalid);
   let msg=`<span style="color:var(--green)">✓ ${routes.length} rota(s) otimizada(s) — ${valid.length} entrega(s)</span>`;
   if(failed.length)msg+=` &nbsp;<span style="color:var(--orange)">⚠️ ${failed.length} não geocodificado(s): Nota(s) ${failed.join(', ')}</span>`;
   st.innerHTML=msg;btn.disabled=false;
 }
 
-// Calcula distância real via Directions API (com fallback haversine)
-async function calcDistances(routes,originAddr){
+// ─── Hybrid: ≤25 paradas → Directions optimizeWaypoints | >25 → Distance Matrix + 2-opt ───
+async function calcDistances(routes,originAddr,depot,st){
   const svc=new google.maps.DirectionsService();
-  for(const rt of routes){
-    if(!rt.stops.length)continue;
-    try{
-      // Máx 23 waypoints intermediários (limite API)
-      const wpts=rt.stops.slice(0,-1).map(s=>({location:new google.maps.LatLng(s.lat,s.lng),stopover:true})).slice(0,23);
-      const result=await new Promise((res,rej)=>svc.route({
-        origin:originAddr,
-        destination:new google.maps.LatLng(rt.stops[rt.stops.length-1].lat,rt.stops[rt.stops.length-1].lng),
-        waypoints:wpts,
-        travelMode:google.maps.TravelMode.DRIVING
-      },(r,status)=>status==='OK'?res(r):rej(status)));
-      rt.distKm=(result.routes[0].legs.reduce((s,l)=>s+l.distance.value,0)/1000).toFixed(1);
-    }catch(e){
-      // Fallback: haversine
-      rt.distKm=pathDist(rt.stops,null).toFixed(1)+'*'; // * = estimativa
+  const matSvc=new google.maps.DistanceMatrixService();
+  for(let ri=0;ri<routes.length;ri++){
+    const rt=routes[ri];if(!rt.stops.length)continue;
+    if(st)st.innerHTML=`<span class="loading"><span class="spinner"></span> Otimizando rota ${ri+1}/${routes.length} com distâncias reais...</span>`;
+    if(rt.stops.length<=25&&originAddr){
+      // ≤ 25 paradas: Google TSP via Directions API (optimizeWaypoints)
+      try{
+        const wpts=rt.stops.map(s=>({location:new google.maps.LatLng(s.lat,s.lng),stopover:true}));
+        const result=await new Promise((res,rej)=>svc.route({origin:originAddr,destination:originAddr,waypoints:wpts,optimizeWaypoints:true,travelMode:google.maps.TravelMode.DRIVING},(r,status)=>status==='OK'?res(r):rej(status)));
+        rt.stops=result.routes[0].waypoint_order.map(i=>rt.stops[i]);
+        const legs=result.routes[0].legs;
+        rt.distKm=(legs.slice(0,legs.length-1).reduce((s,l)=>s+l.distance.value,0)/1000).toFixed(1);
+      }catch(e){rt.distKm=pathDist(rt.stops,null).toFixed(1)+'*';}
+    }else{
+      // > 25 paradas: Distance Matrix → 2-opt real → Directions em blocos
+      await optimizeLargeRoute(rt,originAddr,depot,matSvc,svc);
     }
+    await sleep(300);
+  }
+}
+
+async function optimizeLargeRoute(rt,originAddr,depot,matSvc,svc){
+  const n=rt.stops.length,distMap=new Map(),bSz=25;
+  // Monta matriz de distâncias reais por lotes 25×25
+  for(let i=0;i<n;i+=bSz){
+    const origs=rt.stops.slice(i,i+bSz).map(s=>new google.maps.LatLng(s.lat,s.lng));
+    for(let j=0;j<n;j+=bSz){
+      const dests=rt.stops.slice(j,j+bSz).map(s=>new google.maps.LatLng(s.lat,s.lng));
+      try{
+        const resp=await new Promise((res,rej)=>matSvc.getDistanceMatrix({origins:origs,destinations:dests,travelMode:google.maps.TravelMode.DRIVING},(r,s)=>s==='OK'?res(r):rej(s)));
+        resp.rows.forEach((row,ri)=>row.elements.forEach((el,ci)=>{if(el.status==='OK'){const a=rt.stops[i+ri],b=rt.stops[j+ci];distMap.set(`${a.lat},${a.lng}|${b.lat},${b.lng}`,el.distance.value);}}));
+      }catch(e){/* lote com fallback haversine */}
+      await sleep(150);
+    }
+  }
+  // 2-opt com distâncias reais (fallback haversine*1250 se não cobertas)
+  const getDist=(a,b)=>distMap.get(`${a.lat},${a.lng}|${b.lat},${b.lng}`)??haverDist(a,b)*1250;
+  rt.stops=twoOptReal(rt.stops,getDist);
+  // Calcula distância total via Directions em blocos de 25 pontos
+  let total=0;const all=depot?[depot,...rt.stops]:rt.stops;
+  for(let i=0;i<all.length-1;i+=24){
+    const chunk=all.slice(i,i+25);
+    try{
+      const result=await new Promise((res,rej)=>svc.route({origin:new google.maps.LatLng(chunk[0].lat,chunk[0].lng),destination:new google.maps.LatLng(chunk[chunk.length-1].lat,chunk[chunk.length-1].lng),waypoints:chunk.slice(1,-1).map(s=>({location:new google.maps.LatLng(s.lat,s.lng),stopover:true})),travelMode:google.maps.TravelMode.DRIVING},(r,s)=>s==='OK'?res(r):rej(s)));
+      total+=result.routes[0].legs.reduce((s,l)=>s+l.distance.value,0);
+    }catch(e){for(let j=1;j<chunk.length;j++)total+=haverDist(chunk[j-1],chunk[j])*1000;}
     await sleep(200);
   }
+  rt.distKm=(total/1000).toFixed(1);
+}
+
+function twoOptReal(stops,getDist){
+  if(stops.length<=2)return stops;
+  let route=[...stops];let improved=true,iters=0;
+  while(improved&&iters++<300){improved=false;for(let i=0;i<route.length-1;i++){for(let j=i+2;j<route.length;j++){const db=getDist(route[i],route[i+1])+(j<route.length-1?getDist(route[j],route[j+1]):0);const da=getDist(route[i],route[j])+(j<route.length-1?getDist(route[i+1],route[j+1]):0);if(da<db-1){let lo=i+1,hi=j;while(lo<hi){[route[lo],route[hi]]=[route[hi],route[lo]];lo++;hi--;}improved=true;}}}}
+  return route;
 }
 
 // ─── Helpers de distância ─────────────────────────────────────────────────────
