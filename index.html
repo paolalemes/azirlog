@@ -483,7 +483,12 @@ async function calcRoutes(){
   if(!rows.length){st.innerHTML='<span style="color:#c00">Nenhuma entrega encontrada.</span>';btn.disabled=false;return;}
   st.innerHTML='<span class="loading"><span class="spinner"></span> Carregando Google Maps...</span>';
   await loadGMaps(key);
-  const geocoder=new google.maps.Geocoder();let done=0;const failed=[];
+  const geocoder=new google.maps.Geocoder();
+  const originAddr=document.getElementById('origin').value.trim();
+  // Geocodifica o depósito de saída para usar como ponto fixo na otimização
+  let depot=null;
+  if(originAddr){st.innerHTML='<span class="loading"><span class="spinner"></span> Geocodificando depósito...</span>';try{const r=await new Promise((res,rej)=>geocoder.geocode({address:originAddr},(results,status)=>{if(status==='OK'&&results[0])res(results[0].geometry.location);else rej(status);}));depot={lat:r.lat(),lng:r.lng()};}catch(e){console.warn('Depósito não geocodificado, otimizando sem ponto de partida');}}
+  let done=0;const failed=[];
   for(const row of rows){
     const addr=`${row.end}, ${row.cidade}, São Paulo, Brasil`;
     try{const r=await new Promise((res,rej)=>geocoder.geocode({address:addr},(results,status)=>{if(status==='OK'&&results[0])res(results[0].geometry.location);else rej(status);}));row.lat=r.lat();row.lng=r.lng();}
@@ -491,16 +496,19 @@ async function calcRoutes(){
     done++;st.innerHTML=`<span class="loading"><span class="spinner"></span> Geocodificando ${done}/${rows.length}...</span>`;await sleep(80);
   }
   const valid=rows.filter(r=>r.lat),invalid=rows.filter(r=>!r.lat);
+  st.innerHTML='<span class="loading"><span class="spinner"></span> Agrupando entregas (K-means++)...</span>';
+  await sleep(10);
   const clusters=clusterRoutes(valid,nCars,mode);
-  const routes=clusters.filter(c=>c.length).map((cl,i)=>({car:i+1,stops:nearestNeighbor(cl),distKm:null}));
+  st.innerHTML='<span class="loading"><span class="spinner"></span> Otimizando rotas (2-opt + or-opt)...</span>';
+  await sleep(10);
+  const optClusters=interRouteOpt(clusters,depot);
+  const routes=optClusters.filter(c=>c.length).map((cl,i)=>({car:i+1,stops:buildRoute(cl,depot),distKm:null}));
   S.mod3.routes=routes;S.mod3.failed=invalid;
-  // Calcula distâncias via Directions API
-  const originAddr=document.getElementById('origin').value.trim();
-  st.innerHTML=`<span class="loading"><span class="spinner"></span> Calculando distâncias...</span>`;
+  st.innerHTML=`<span class="loading"><span class="spinner"></span> Calculando distâncias reais...</span>`;
   await calcDistances(routes,originAddr);
   renderRoutes(routes,invalid);
-  let msg=`<span style="color:var(--green)">✓ ${routes.length} rota(s) calculada(s)</span>`;
-  if(failed.length)msg+=` &nbsp;<span style="color:var(--orange)">⚠️ ${failed.length} não encontrado(s): Nota(s) ${failed.join(', ')}</span>`;
+  let msg=`<span style="color:var(--green)">✓ ${routes.length} rota(s) otimizada(s) — ${valid.length} entrega(s)</span>`;
+  if(failed.length)msg+=` &nbsp;<span style="color:var(--orange)">⚠️ ${failed.length} não geocodificado(s): Nota(s) ${failed.join(', ')}</span>`;
   st.innerHTML=msg;btn.disabled=false;
 }
 
@@ -520,32 +528,72 @@ async function calcDistances(routes,originAddr){
       },(r,status)=>status==='OK'?res(r):rej(status)));
       rt.distKm=(result.routes[0].legs.reduce((s,l)=>s+l.distance.value,0)/1000).toFixed(1);
     }catch(e){
-      // Fallback: soma haversine entre paradas consecutivas
-      let d=0;const all=rt.stops;
-      for(let i=1;i<all.length;i++){
-        const R=6371,dLat=(all[i].lat-all[i-1].lat)*Math.PI/180,dLng=(all[i].lng-all[i-1].lng)*Math.PI/180;
-        const a=Math.sin(dLat/2)**2+Math.cos(all[i-1].lat*Math.PI/180)*Math.cos(all[i].lat*Math.PI/180)*Math.sin(dLng/2)**2;
-        d+=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-      }
-      rt.distKm=d.toFixed(1)+'*'; // * = estimativa
+      // Fallback: haversine
+      rt.distKm=pathDist(rt.stops,null).toFixed(1)+'*'; // * = estimativa
     }
     await sleep(200);
   }
 }
 
+// ─── Helpers de distância ─────────────────────────────────────────────────────
+function haverDist(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;const h=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));}
+function pathDist(stops,depot){let d=0;const all=depot?[depot,...stops]:stops;for(let i=1;i<all.length;i++)d+=haverDist(all[i-1],all[i]);return d;}
+
+// ─── K-means++ com múltiplos restarts ────────────────────────────────────────
+function kmeansppInit(pts,k){const c=[pts[Math.floor(Math.random()*pts.length)]];while(c.length<k){const d=pts.map(p=>Math.min(...c.map(x=>haverDist(p,x)**2)));const t=d.reduce((s,x)=>s+x,0);let r=Math.random()*t,i=0;for(;i<pts.length-1;i++){r-=d[i];if(r<=0)break;}c.push(pts[i]);}return c;}
+function clusterKmeans(pts,k){let best=null,bestI=Infinity;for(let a=0;a<8;a++){let centers=kmeansppInit(pts,k),cl=[];for(let iter=0;iter<60;iter++){cl=Array.from({length:k},()=>[]);pts.forEach(p=>{let m=Infinity,idx=0;centers.forEach((c,i)=>{const d=haverDist(p,c);if(d<m){m=d;idx=i;}});cl[idx].push(p);});const nc=cl.map((c,i)=>c.length?{lat:c.reduce((s,r)=>s+r.lat,0)/c.length,lng:c.reduce((s,r)=>s+r.lng,0)/c.length}:centers[i]);if(!nc.some((c,i)=>haverDist(c,centers[i])>0.005))break;centers=nc;}const inertia=cl.reduce((s,c,i)=>s+c.reduce((ss,p)=>ss+haverDist(p,centers[i])**2,0),0);if(inertia<bestI){bestI=inertia;best=cl;}}return best||[pts];}
 function clusterRoutes(pts,k,mode){
   if(k===1)return[pts];if(pts.length<=k)return pts.map(p=>[p]);
-  let centers=pts.slice(0,k).map(p=>({lat:p.lat,lng:p.lng})),clusters=[];
-  for(let iter=0;iter<30;iter++){clusters=Array.from({length:k},()=>[]);pts.forEach(p=>{let min=Infinity,idx=0;centers.forEach((c,i)=>{const d=(p.lat-c.lat)**2+(p.lng-c.lng)**2;if(d<min){min=d;idx=i;}});clusters[idx].push(p);});centers=clusters.map((cl,i)=>cl.length?{lat:cl.reduce((s,r)=>s+r.lat,0)/cl.length,lng:cl.reduce((s,r)=>s+r.lng,0)/cl.length}:centers[i]);}
-  if(mode==='notes')clusters=rebalance(clusters,pts,centers,p=>1);else if(mode==='items')clusters=rebalance(clusters,pts,centers,p=>(p.veg||0)+(p.porc||0)+(p.pf||0)||1);
-  return clusters;
+  const clusters=clusterKmeans(pts,k);
+  if(mode==='geo')return clusters;
+  const centers=clusters.map(cl=>cl.length?{lat:cl.reduce((s,r)=>s+r.lat,0)/cl.length,lng:cl.reduce((s,r)=>s+r.lng,0)/cl.length}:{lat:0,lng:0});
+  const weightFn=mode==='items'?(p=>(p.veg||0)+(p.porc||0)+(p.pf||0)||1):(p=>1);
+  return rebalance(clusters,pts,centers,weightFn);
 }
 function rebalance(clusters,pts,centers,weightFn){
   const k=clusters.length,target=pts.reduce((s,p)=>s+weightFn(p),0)/k;
   for(let pass=0;pass<20;pass++){let moved=false;for(let i=0;i<k;i++){const wi=clusters[i].reduce((s,p)=>s+weightFn(p),0);if(wi<=target*1.1)continue;clusters[i].forEach((p,pi)=>{if(moved)return;let bestJ=-1,bestD=Infinity;for(let j=0;j<k;j++){if(j===i)continue;const wj=clusters[j].reduce((s,p2)=>s+weightFn(p2),0);if(wj>=target*0.9)continue;const d=(p.lat-centers[j].lat)**2+(p.lng-centers[j].lng)**2;if(d<bestD){bestD=d;bestJ=j;}}if(bestJ>=0){clusters[bestJ].push(...clusters[i].splice(pi,1));moved=true;}});}if(!moved)break;}
   return clusters;
 }
-function nearestNeighbor(stops){if(stops.length<=1)return stops;const unv=[...stops],route=[unv.splice(0,1)[0]];while(unv.length){const last=route[route.length-1];let min=Infinity,idx=0;unv.forEach((s,i)=>{const d=(s.lat-last.lat)**2+(s.lng-last.lng)**2;if(d<min){min=d;idx=i;}});route.push(unv.splice(idx,1)[0]);}return route;}
+
+// ─── 2-opt: elimina cruzamentos entre segmentos ───────────────────────────────
+function twoOpt(stops,depot){
+  if(stops.length<=2)return stops;
+  const path=depot?[depot,...stops]:[...stops];const s0=depot?1:0;
+  let improved=true,iters=0;
+  while(improved&&iters++<500){improved=false;for(let i=s0;i<path.length-2;i++){for(let j=i+2;j<path.length;j++){const db=haverDist(path[i],path[i+1])+(j<path.length-1?haverDist(path[j],path[j+1]):0);const da=haverDist(path[i],path[j])+(j<path.length-1?haverDist(path[i+1],path[j+1]):0);if(da<db-1e-8){let lo=i+1,hi=j;while(lo<hi){[path[lo],path[hi]]=[path[hi],path[lo]];lo++;hi--;}improved=true;}}}}
+  return depot?path.slice(1):path;
+}
+
+// ─── Or-opt: realoca paradas individuais para posições melhores ───────────────
+function orOpt(stops,depot){
+  if(stops.length<=2)return stops;
+  const path=depot?[depot,...stops]:[...stops];const s0=depot?1:0;
+  let improved=true,iters=0;
+  while(improved&&iters++<300){improved=false;outer:for(let i=s0;i<path.length;i++){const node=path[i],prev=i>0?path[i-1]:null,next=i<path.length-1?path[i+1]:null;const rem=(prev?haverDist(prev,node):0)+(next?haverDist(node,next):0)-(prev&&next?haverDist(prev,next):0);for(let j=s0-1;j<path.length;j++){if(j===i||j===i-1)continue;const bef=j>=0?path[j]:null,aft=j<path.length-1?path[j+1]:null;if(aft===node)continue;const ins=(bef&&bef!==node?haverDist(bef,node):0)+(aft&&aft!==node?haverDist(node,aft):0)-(bef&&aft&&bef!==node&&aft!==node?haverDist(bef,aft):0);if(ins-rem<-1e-8){path.splice(i,1);path.splice(j<i?j+1:j,0,node);improved=true;break outer;}}}}
+  return depot?path.slice(1):path;
+}
+
+// ─── buildRoute: NN multi-start → 2-opt → or-opt ─────────────────────────────
+function buildRoute(stops,depot){
+  if(!stops.length)return[];if(stops.length===1)return stops;
+  const maxS=Math.min(stops.length,12),step=Math.ceil(stops.length/maxS);
+  let best=null,bestD=Infinity;
+  const starts=depot?[-1]:Array.from({length:maxS},(_,i)=>i*step);
+  for(const si of starts){const unv=[...stops],route=[];let cur=si===-1?depot:unv.splice(si,1)[0];if(si!==-1)route.push(cur);while(unv.length){let m=Infinity,idx=0;unv.forEach((s,i)=>{const d=haverDist(cur,s);if(d<m){m=d;idx=i;}});cur=unv.splice(idx,1)[0];route.push(cur);}const d=pathDist(route,depot);if(d<bestD){bestD=d;best=route;}}
+  best=twoOpt(best,depot);
+  best=orOpt(best,depot);
+  return best;
+}
+
+// ─── Inter-route: move paradas entre clusters se geometricamente faz sentido ──
+function interRouteOpt(clusters,depot){
+  if(clusters.length<=1)return clusters;
+  const avg=cl=>cl.length?{lat:cl.reduce((s,p)=>s+p.lat,0)/cl.length,lng:cl.reduce((s,p)=>s+p.lng,0)/cl.length}:null;
+  let improved=true,iters=0;
+  while(improved&&iters++<50){improved=false;for(let i=0;i<clusters.length&&!improved;i++){if(clusters[i].length<=1)continue;for(let pi=0;pi<clusters[i].length&&!improved;pi++){const p=clusters[i][pi];const centI=avg(clusters[i].filter((_,k)=>k!==pi));if(!centI)continue;const dToI=haverDist(p,centI);for(let j=0;j<clusters.length&&!improved;j++){if(j===i)continue;const centJ=avg(clusters[j]);if(!centJ)continue;if(haverDist(p,centJ)<dToI*0.85){clusters[i].splice(pi,1);clusters[j].push(p);improved=true;}}}}}
+  return clusters;
+}
 
 const CAR_COLORS=['#C0392B','#1565C0','#6A1B9A','#00695C','#E65100','#558B2F','#4527A0'];
 function renderRoutes(routes,failed=[]){
