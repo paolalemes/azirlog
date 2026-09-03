@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Editores e ferramentas locais
+.claude/
+.vscode/
+.idea/
+
+# Arquivos temporários
+*.bak
+*.log
