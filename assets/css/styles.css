@@ -96,9 +96,10 @@ tr.total-row td{font-weight:700;background:linear-gradient(90deg,#EEF6EE,#F4FAF4
 .summary-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--border)}
 .summary-box:has(.s-green)::before{background:linear-gradient(90deg,var(--green),#2e7d32)}
 .summary-box:has(.s-orange)::before{background:linear-gradient(90deg,var(--orange),#f57c00)}
+.summary-box:has(.s-red)::before{background:linear-gradient(90deg,#B71C1C,#E53935)}
 .s-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--muted)}
 .s-value{font-size:24px;font-weight:800;color:var(--text);margin-top:5px;letter-spacing:-.5px}
-.s-green{color:var(--green)}.s-orange{color:var(--orange)}
+.s-green{color:var(--green)}.s-orange{color:var(--orange)}.s-red{color:#B71C1C}
 
 /* ── Status / Loading ── */
 .status-msg{font-size:13px;color:var(--muted)}
@@ -123,6 +124,7 @@ select.form-input{cursor:pointer}
 .qty-green{background:#E8F5E9;color:#1B5E20}
 .qty-orange{background:#FFF3E0;color:#E65100}
 .qty-blue{background:#E3F2FD;color:#1565C0}
+.qty-red{background:#FFEBEE;color:#B71C1C}
 .qty-zero{color:#C5D0C5;font-size:12px}
 #route-table td{padding:11px 15px;vertical-align:middle}
 .city-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--muted);transition:all .18s;user-select:none;box-shadow:var(--shadow-sm)}

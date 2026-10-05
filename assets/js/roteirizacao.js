@@ -25,9 +25,11 @@ async function loadSheet(){
     const iV=headers.findIndex(h=>h.includes('VEGETA'))>=0?headers.findIndex(h=>h.includes('VEGETA')):6;
     const iP=headers.findIndex(h=>(h.includes('PORCO')||h.includes('SUINO'))&&!h.includes('FRANGO'))>=0?headers.findIndex(h=>(h.includes('PORCO')||h.includes('SUINO'))&&!h.includes('FRANGO')):7;
     const iPF=headers.findIndex(h=>h.includes('FRANGO'))>=0?headers.findIndex(h=>h.includes('FRANGO')):8;
+    // Carne e opcional: sem coluna CARNE no cabecalho, fica 0 (sem posicao fixa para nao ler a coluna de status)
+    const iCa=headers.findIndex(h=>h.includes('CARNE'));
     const iEt=headers.findIndex(h=>h.includes('ENTREGA')&&!h.includes('DATA'))>=0?headers.findIndex(h=>h.includes('ENTREGA')&&!h.includes('DATA')):9;
-    const data=rows.map(r=>({data:(r[iD]||'').trim(),nota:(r[iN]||'').trim(),dest:(r[iDs]||'').trim(),end:(r[iE]||'').trim(),cidade:(r[iC]||'').trim(),veg:parseInt(r[iV])||0,porc:parseInt(r[iP])||0,pf:parseInt(r[iPF])||0,status:(r[iEt]||'').trim(),lat:null,lng:null})).filter(r=>r.nota&&r.dest);
-    if(!data.length){const dbg=`Cabeçalho linha ${hIdx+1}: [${headers.slice(0,8).join('|')}]. NOTA=${iN} DEST=${iDs} END=${iE} CIDADE=${iC} VEG=${iV} PORC=${iP} PF=${iPF}. Linhas: ${rows.length}.`;throw new Error(`Nenhuma nota encontrada. Debug: ${dbg}`);}
+    const data=rows.map(r=>({data:(r[iD]||'').trim(),nota:(r[iN]||'').trim(),dest:(r[iDs]||'').trim(),end:(r[iE]||'').trim(),cidade:(r[iC]||'').trim(),veg:parseInt(r[iV])||0,porc:parseInt(r[iP])||0,pf:parseInt(r[iPF])||0,carne:iCa>=0?(parseInt(r[iCa])||0):0,status:(r[iEt]||'').trim(),lat:null,lng:null})).filter(r=>r.nota&&r.dest);
+    if(!data.length){const dbg=`Cabeçalho linha ${hIdx+1}: [${headers.slice(0,8).join('|')}]. NOTA=${iN} DEST=${iDs} END=${iE} CIDADE=${iC} VEG=${iV} PORC=${iP} PF=${iPF} CARNE=${iCa}. Linhas: ${rows.length}.`;throw new Error(`Nenhuma nota encontrada. Debug: ${dbg}`);}
     S.mod3.rows=data;S.mod3.sheetId=id;
     const pend=data.filter(r=>{const s=r.status.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');return s.includes('NAO')||!r.status;}).length;
     document.getElementById('sheet-sum').innerHTML=`<div class="summary-box"><div class="s-label">Total Notas</div><div class="s-value">${data.length}</div></div><div class="summary-box"><div class="s-label">Não Entregues</div><div class="s-value s-orange">${pend}</div></div><div class="summary-box"><div class="s-label">Cidades</div><div class="s-value">${[...new Set(data.map(r=>r.cidade).filter(Boolean))].length}</div></div>`;

@@ -74,7 +74,7 @@ function clusterRoutes(pts,k,mode){
   const clusters=clusterKmeans(pts,k);
   if(mode==='geo')return clusters;
   const centers=clusters.map(cl=>cl.length?{lat:cl.reduce((s,r)=>s+r.lat,0)/cl.length,lng:cl.reduce((s,r)=>s+r.lng,0)/cl.length}:{lat:0,lng:0});
-  const weightFn=mode==='items'?(p=>(p.veg||0)+(p.porc||0)+(p.pf||0)||1):(p=>1);
+  const weightFn=mode==='items'?(p=>(p.veg||0)+(p.porc||0)+(p.pf||0)+(p.carne||0)||1):(p=>1);
   return rebalance(clusters,pts,centers,weightFn);
 }
 function rebalance(clusters,pts,centers,weightFn){
